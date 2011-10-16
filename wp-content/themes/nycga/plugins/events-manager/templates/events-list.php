@@ -1,60 +1,30 @@
 <?php
+/*
+ * Default Events List Template
+ * This page displays a list of events, called during the em_content() if this is an events list page.
+ * You can override the default display settings pages by copying this file to yourthemefolder/plugins/events-manager/templates/ and modifying it however you need.
+ * You can display events however you wish, there are a few variables made available to you:
+ * 
+ * $args - the args passed onto EM_Events::output()
+ * 
+ */ 
 
-	//TODO Simplify panel for events, use form flags to detect certain actions (e.g. submitted, etc)
-	global $wpdb, $bp, $EM_Event, $EM_Notices;
+/* $events = EM_Events::get( apply_filters('em_content_events_args', $args) ); */
 
-	$search = ( !empty($_REQUEST['em_search']) ) ? $_REQUEST['em_search']:'';
+global $bp;
 
-	$url = $bp->events->link . 'my-events/'; //url to this page
-	$order = ( !empty($_REQUEST ['order']) ) ? $_REQUEST ['order']:'ASC';
-	$limit = ( !empty($_REQUEST['limit']) ) ? $_REQUEST['limit'] : get_option('dbem_events_default_limit') ? get_option('dbem_events_default_limit') : 20;//Default limit
-	$page = ( !empty($_REQUEST['pno']) ) ? $_REQUEST['pno']:1;
-	$offset = ( $page > 1 ) ? ($page-1)*$limit : 0;
-	$scope_names = em_get_scopes();
-	$scope = ( !empty($_REQUEST['scope']) && array_key_exists($_REQUEST['scope'], $scope_names) ) ? $_REQUEST['scope']:'future';
-	if( array_key_exists('status', $_REQUEST) ){
-		$status = ($_REQUEST['status']) ? 1:0;
-	}else{
-		$status = false;
-	}
-	$args = array(
-		'scope' => $scope, 
-		'limit' => 0, 
-		'order' => $order, 
-		'search' => $search,
-		'owner' => get_current_user_id(),
-		'status' => $status
-	);
+$url = $bp->events->link . 'my-events/'; //url to this page
 
-	$events_count = EM_Events::get($args, true);
-	$args['limit'] = $limit;
-	$args['page'] = $page;
-	$args['offset'] = $offset;
-	
-	$EM_Events = EM_Events::get($args);
+$events_count = EM_Events::get($args, true);
+$args['limit'] = get_option('dbem_events_default_limit') ? get_option('dbem_events_default_limit') : 20;
+$args['page'] = (!empty($_REQUEST['pno']) && is_numeric($_REQUEST['pno']) )? $_REQUEST['pno'] : 1;
+$args['offset'] = ($args['page'] - 1) * $args['limit'];
+$EM_Events = EM_Events::get($args);
 
-	$future_count = EM_Events::count( array('status'=>1, 'owner' =>get_current_user_id(), 'scope' => 'future',));
-	$past_count = EM_Events::count( array('status'=>1, 'owner' =>get_current_user_id(), 'scope' => 'past',));
-	$pending_count = EM_Events::count( array('status'=>0, 'owner' =>get_current_user_id(), 'scope' => 'all') );
-	$use_events_end = get_option('dbem_use_event_end');
-	?>
-	<div class="wrap">
-		<?php echo $EM_Notices; ?>
-		<form id="posts-filter" action="<?php echo $url; ?>" method="get">
-<!--  	 		<?php if(current_user_can('edit_events')): ?><a href="<?php echo $url?>edit/" class="button add-new-h2"><?php _e('Add New','dbem'); ?></a><?php endif; ?> -->
-			<div class="subsubsub">
-				<a href='<?php echo $url; ?>' <?php echo ( !isset($_GET['status']) ) ? 'class="current"':''; ?>><?php _e ( 'Upcoming', 'dbem' ); ?> <span class="count">(<?php echo $future_count; ?>)</span></a> &nbsp;|&nbsp; 
-				<?php if( !current_user_can('publish_events') ): ?>
-				<a href='<?php echo $url ?>?status=0' <?php echo ( isset($_GET['status']) && $_GET['status']=='0' ) ? 'class="current"':''; ?>><?php _e ( 'Pending', 'dbem' ); ?> <span class="count">(<?php echo $pending_count; ?>)</span></a> &nbsp;|&nbsp; 
-				<?php endif; ?>
-				<a href='<?php echo $url; ?>?scope=past' <?php echo ( !empty($_REQUEST['scope']) && $_REQUEST['scope'] == 'past' ) ? 'class="current"':''; ?>><?php _e ( 'Past Events', 'dbem' ); ?> <span class="count">(<?php echo $past_count; ?>)</span></a>
-			</div>
-			<p class="em-events-search">
-				<label class="screen-reader-text" for="post-search-input"><?php _e('Search Events','dbem'); ?>:</label>
-				<input type="text" id="post-search-input" name="em_search" value="<?php echo (!empty($_REQUEST['em_search'])) ? $_REQUEST['em_search']:''; ?>" />
-				<input type="submit" value="<?php _e('Search Events','dbem'); ?>" class="button" />
-			</p>			
-<?php if( $events_count > 0 ){ ?>
+if( get_option('dbem_events_page_search') ){
+	em_locate_template('templates/events-search.php',true);
+}	
+if( $events_count > 0 ){ ?>
 				<?php if ( $events_count >= $args['limit'] ) : ?>
 					<div class="tablenav">
 					<?php 
@@ -185,5 +155,4 @@
 <?php
 }else{
 	echo get_option ( 'dbem_no_events_message' );
-}?>
-</form></div>
+}

@@ -46,15 +46,17 @@
 				<?php endif; ?>
 			<table class="widefat events-table">
 				<thead>
-					<tr>
+					<tr class="header-row">
 						<?php /* 
 						<th class='manage-column column-cb check-column' scope='col'>
 							<input class='select-all' type="checkbox" value='1' />
 						</th>
 						*/ ?>
-						<th class="event-datetime"><?php _e ( 'Info', 'dbem' ); ?></th>
-						<th class="event-group">Group</th>
-<!-- 						<th class="event-location"><?php _e ( 'Details', 'dbem' ); ?></th> -->
+						<th class="event-date"><?php _e ( 'Date', 'dbem' ); ?></th>
+						<th class="event-time"><?php _e ( 'Time', 'dbem' ); ?></th>
+						<th class="event-location"><?php _e ( 'Location', 'dbem' ); ?></th>
+<!-- 						<th class="event-category"><?php _e ('Category', 'dbem') ?></th> -->
+						<th class="event-group"><?php _e ( 'Group', 'dbem' ); ?></th>
 						<th class="event-name"><?php _e ( 'Description', 'dbem' ); ?></th>
 					</tr>
 				</thead>
@@ -67,8 +69,8 @@
 							$rowno++;
 							$class = ($rowno % 2) ? 'alternate' : '';
 							// FIXME set to american
-							$localised_start_date = date_i18n('M d y', $event->start);
-							$localised_end_date = date_i18n('M d y', $event->end);
+							$localised_start_date = date_i18n('M d', $event->start);
+							$localised_end_date = date_i18n('M d', $event->end);
 							$style = "";
 							$today = date ( "Y-m-d" );
 							
@@ -87,27 +89,36 @@
 								
 								<td class="event-datetime">
 									<div class="event-date">
-										<?php echo strtotime($localised_start_date) == strtotime('today') ? _e('Today') : date('M d', strtotime($localised_start_date)) . '<br><span>'.date('Y', strtotime($localised_start_date)).'</span>'; ?>
+										<?php echo strtotime($localised_start_date) == strtotime('today') ? _e('Today') : $localised_start_date . '<br><span>'.date('Y', strtotime($localised_start_date)).'</span>'; ?>
 									</div>
+								</td>
+								<td>
 									<div class="event-time"><?php
 										//TODO Should 00:00 - 00:00 be treated as an all day event? 
 										echo date('g:ia', strtotime($event->start_time)) ?> - <?php echo ($localised_end_date != $localised_start_date) ? $localised_end_date . ' @' : '' ?>
 										<?php echo date('g:ia', strtotime($event->end_time)); 
 									?></div>
+								</td>
+								<td>
 									<p style="margin: 10px 0"><?php echo $event->location->name?></p>
 <!-- 									<?php echo $event->location->address ?> - <?php echo $event->location->town; ?><br/> -->
 									<?php echo $event->attributes['Location Details'] ?>
 								</td>
+<!--
+								<td>
+								</td>
+-->
 								<td class="event-group">
 									<?php if ($event->group_id > 0) : ?>
 										<a href="<?php echo bp_get_group_permalink($event_group) ?>"><?php echo bp_core_fetch_avatar('object=group&item_id='.$event_group->id) ?><br/>
 										<small><?php echo $event_group->name ?></small></a>
 									<?php else : ?>
-										<small>General</small>
+										<small></small>
 									<?php endif; ?>
 								</td>
 								<td class="event-title">
 									<p><a class="row-title" href="/events?event_id=<?php echo $event->id ?>"><?php echo ($event->name); ?></a></p>
+									<?php echo $event->output('#_CATEGORIES') ?>
 									<?php 
 									if( get_option('dbem_rsvp_enabled') == 1 && $event->rsvp == 1 ){
 										?>
@@ -118,7 +129,7 @@
 									}
 									
 									?>
-									<?php echo $event->output('<p>#_EXCERPT</p>');  ?>
+<!-- 									<?php echo $event->output('<p>#_EXCERPT</p>');  ?> -->
 									<?php echo $event->is_recurrence() ? '<p class="recurrence-descr">' . $event->get_recurrence_description() . '</p>' : ''; ?>
 									<?php if ((groups_is_user_admin(get_current_user_id(), $event->group_id) || groups_is_user_mod(get_current_user_id(), $event->group_id)) || get_current_user_id() == $event->id || current_user_can('edit_others_events') || current_user_can('delete_others_events')) : ?>
 										<div class="event-actions">
@@ -146,8 +157,6 @@
 			<div class="tablenav">
 				<?php
 				if ( $events_count >= $args['limit'] ) {
-					require_once(EM_DIR . '/admin/em-admin.php');
-					$events_nav = em_admin_paginate( $events_count, $args['limit'], $args['page']);
 					echo $events_nav;
 				}
 				?>
@@ -156,5 +165,4 @@
 <?php
 }else{
 	echo get_option ( 'dbem_no_events_message' );
-}
-?>
+}?>
