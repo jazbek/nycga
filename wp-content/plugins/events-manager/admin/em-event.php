@@ -39,18 +39,6 @@ function em_admin_event_page() {
 			$EM_Event->location = new EM_Location($default_loc);
 		}
 	}
-
-	if($_POST['location_meta']) {
-		// global $wpdb;
-		// $a = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM wp_em_meta WHERE object_id='{$EM_Event->id}' AND meta_key='short_location'" ) );
-		// if($a) {
-		// 	$query ="UPDATE wp_em_meta SET meta_value='{$_POST['location_meta']}' WHERE object_id='{$this->id}' AND meta_key='short_location')";
-		// 	$wpdb->query( $query );
-		// } else {
-		// 	$query = "INSERT INTO wp_em_meta (meta_value, object_id, meta_key) VALUES ('{$_POST['location_meta']}','{$this->id}', 'short_location')";
-		// 	$wpdb->query( $query );
-		// }
-	}
 	
 	$use_select_for_locations = get_option('dbem_use_select_for_locations');
 	// change prefix according to event/recurrence
@@ -410,17 +398,6 @@ function em_admin_event_page() {
 			                            		<p id="em-location-reset" style="display:none;"><em><?php _e('You cannot edit saved locations here.', 'dbem'); ?> <a href="#"><?php _e('Reset this form to create a location.', 'dbem')?></a></em></p>
 			                            	</td>
 								 		</tr>
-										<tr>
-											<th>On-site Location:</th>
-											<td>
-											<?php
-											//ERICLEWIS
-											global $wpdb;
-											$specific_location = $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM wp_em_meta WHERE object_id='{$EM_Event->id}' AND meta_key='short_location'" ) );
-											?>
-											<input id="location-specific" type="text" name="location_meta" value="<?php echo $specific_location; ?>" />
-											</td>
-										</tr>
 										<tr>
 											<th><?php _e ( 'Address:', 'dbem' )?>&nbsp;</th>
 											<td>

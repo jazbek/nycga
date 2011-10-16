@@ -39,9 +39,7 @@ class EM_Widget extends WP_Widget {
 		echo "<ul>";
 		$li_wrap = !preg_match('/^<li>/i', trim($instance['format']));
 		if ( count($events) > 0 ){
-			foreach($events as $event){	
-				global $event_id_for_widget;
-				$event_id_for_widget = $event->id;
+			foreach($events as $event){				
 				if( $li_wrap ){
 					echo '<li>'. $event->output($instance['format']) .'</li>';
 				}else{

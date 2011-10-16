@@ -33,6 +33,7 @@ class EM_Locations extends EM_Object implements Iterator {
 		global $wpdb;
 		$events_table = EM_EVENTS_TABLE;
 		$locations_table = EM_LOCATIONS_TABLE;
+		
 		//Quick version, we can accept an array of IDs, which is easy to retrieve
 		if( self::array_is_numeric($args) ){ //Array of numbers, assume they are event IDs to retreive
 			//We can just get all the events here and return them
@@ -49,7 +50,6 @@ class EM_Locations extends EM_Object implements Iterator {
 		}elseif( is_array($args) && is_object(current($args)) && get_class((current($args))) == 'EM_Location' ){
 			return apply_filters('em_locations_get', $args, $args);
 		}	
-
 
 		//We assume it's either an empty array or array of search arguments to merge with defaults			
 		$args = self::get_default_search($args);
@@ -75,19 +75,11 @@ class EM_Locations extends EM_Object implements Iterator {
 		if( $count ){
 			$fields = $locations_table.'.location_id';
 		}
-		//ERICLEWIS
-		//Create the SQL statement and execute 
-		// $sql = "
-		// 	SELECT $fields FROM $locations_table
-		// 	LEFT JOIN $events_table ON {$locations_table}.location_id={$events_table}.location_id
-		// 	$where
-		// 	GROUP BY {$locations_table}.location_id
-		// 	$orderby_sql
-		// 	$limit $offset
-		// ";
+		//Create the SQL statement and execute
 		$sql = "
 			SELECT $fields FROM $locations_table
 			LEFT JOIN $events_table ON {$locations_table}.location_id={$events_table}.location_id
+			$where
 			GROUP BY {$locations_table}.location_id
 			$orderby_sql
 			$limit $offset

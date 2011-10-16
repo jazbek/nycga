@@ -68,11 +68,6 @@ if( !class_exists('EM_Permalinks') ){
 						if( is_object($object) && get_class($object)=='EM_Location' ){
 							$link = trailingslashit(trailingslashit(EM_URI).EM_LOCATION_SLUG.'/'.$object->slug);
 							$replace = ($result == '#_LOCATIONURL' || $result == '#_LOCATIONPAGEURL') ? $link : '<a href="'.$link.'">'.$object->name.'</a>';
-							//ERICLEWIS
-							global $EM_Event, $wpdb;
-							$a = $wpdb->get_results( "SELECT meta_value FROM wp_em_meta WHERE object_id='{$EM_Event->id}' AND meta_key='short_location'");
-							if($a[0]->meta_value)
-								$replace = $a[0]->meta_value . ", " . $replace; 
 						}
 						break;
 					case '#_CATEGORYLINK':

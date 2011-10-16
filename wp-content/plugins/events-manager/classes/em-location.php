@@ -144,7 +144,6 @@ class EM_Location extends EM_Object {
 						$this->add_error( sprintf(__('Could not save the %s details due to a database error.', 'dbem'),__('location','dbem') ));
 					}			
 				}else{
-					// var_dump($table, $data, $this->get_types($data));
 					$result = $wpdb->insert($table, $data, $this->get_types($data));
 				    $this->id = $wpdb->insert_id;   
 					if( $result !== false ){
@@ -265,24 +264,9 @@ class EM_Location extends EM_Object {
 					break;
 				case '#_ADDRESS': //Depreciated
 				case '#_LOCATIONADDRESS': 
+					$replace = $this->address;
 					break;
 				case '#_TOWN': //Depreciated
-				case '#_LOCATIONSPECIFIC':
-					global $EM_Event, $wpdb, $event_id_for_widget;
-					if($event_id_for_widget) {
-						$the_id = $event_id_for_widget;
-						$append = "";
-					} else {
-						$the_id = $EM_Event->id;
-						$append = ", ";
-					}
-
-					$a = $wpdb->get_results( "SELECT meta_value FROM wp_em_meta WHERE object_id='{$the_id}' AND meta_key='short_location'");
-					if($a[0]->meta_value)
-						$replace = $a[0]->meta_value . $append; 
-					else
-						$replace = "";
-					break;
 				case '#_LOCATIONTOWN':
 					$replace = $this->town;
 					break;
@@ -290,19 +274,27 @@ class EM_Location extends EM_Object {
 					$replace = $this->state;
 					break;
 				case '#_LOCATIONPOSTCODE':
-					
+					$replace = $this->postcode;
 					break;
 				case '#_LOCATIONREGION':
-					
+					$replace = $this->region;
 					break;
 				case '#_LOCATIONCOUNTRY':
-					
+					$replace = $this->get_country();
 					break;
 				case '#_LOCATIONFULLLINE':
-					
+					$replace = $this->address.', ';
+					$replace = empty($this->town) ? '':', '.$this->town;
+					$replace = empty($this->state) ? '':', '.$this->state;
+					$replace = empty($this->postcode) ? '':', '.$this->postcode;
+					$replace = empty($this->region) ? '':', '.$this->region;
 					break;
 				case '#_LOCATIONFULLBR':
-					
+					$replace = $this->address.'<br /> ';
+					$replace = empty($this->town) ? '':'<br /> '.$this->town;
+					$replace = empty($this->state) ? '':'<br /> '.$this->state;
+					$replace = empty($this->postcode) ? '':'<br /> '.$this->postcode;
+					$replace = empty($this->region) ? '':'<br /> '.$this->region;
 					break;
 				case '#_MAP': //Depreciated
 				case '#_LOCATIONMAP':
@@ -344,7 +336,7 @@ class EM_Location extends EM_Object {
 				case '#_LOCATIONPAGEURL': //Depreciated
 					$joiner = (stristr(EM_URI, "?")) ? "&amp;" : "?";
 					$link = esc_url(EM_URI.$joiner."location_id=".$this->id);
-					$replace = ($result == '#_LOCATIONURL' || $result == '#_LOCATIONPAGEURL') ? $link : 'asdf<a href="'.$link.'" title="'.esc_attr($this->name).'">'.esc_html($this->name).'</a>';
+					$replace = ($result == '#_LOCATIONURL' || $result == '#_LOCATIONPAGEURL') ? $link : '<a href="'.$link.'" title="'.esc_attr($this->name).'">'.esc_html($this->name).'</a>';
 					break;
 				case '#_PASTEVENTS': //Depreciated
 				case '#_LOCATIONPASTEVENTS':

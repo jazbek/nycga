@@ -33,7 +33,6 @@ class EM_Events extends EM_Object implements Iterator {
 	 * @return EM_Event array()
 	 */
 	function get( $args = array(), $count=false ) {
-/* 		print_r($args); die(); */
 		global $wpdb;	 
 		$events_table = EM_EVENTS_TABLE;
 		$locations_table = EM_LOCATIONS_TABLE;
@@ -57,21 +56,10 @@ class EM_Events extends EM_Object implements Iterator {
 		//We assume it's either an empty array or array of search arguments to merge with defaults			
 		$args = self::get_default_search($args);
 		$limit = ( $args['limit'] && is_numeric($args['limit'])) ? "LIMIT {$args['limit']}" : '';
-		
-		if ( ! is_admin() && empty($_REQUEST['action']) && empty($args['year']) && empty($args['month'])) //Jessica -- admin uses $_GET['page'] for something else. do not limit when performing an action.
-		{
-			if( ! $_REQUEST['limit'] )
-				$limit ="LIMIT 10";
-			
-			$offset = ( $limit != "" && is_numeric($args['offset']) ) ? "OFFSET {$args['offset']}" : '';
-			
-			if($_GET['page'])
-				$offset = "OFFSET " . ( $_GET['page'] * 10 - 10 );
-		}
+		$offset = ( $limit != "" && is_numeric($args['offset']) ) ? "OFFSET {$args['offset']}" : '';
 		
 		//Get the default conditions
 		$conditions = self::build_sql_conditions($args);
-/* 		print_r($conditions); die(); */
 		//Put it all together
 		$where = ( count($conditions) > 0 ) ? " WHERE " . implode ( " AND ", $conditions ):'';
 		
@@ -85,25 +73,18 @@ class EM_Events extends EM_Object implements Iterator {
 		//Create the SQL statement and execute
 		$selectors = ( $count ) ?  'COUNT(*)':'*';
 		$sql = "
-			SELECT SQL_CALC_FOUND_ROWS $selectors FROM $events_table
+			SELECT $selectors FROM $events_table
 			LEFT JOIN $locations_table ON {$locations_table}.location_id={$events_table}.location_id
 			$where
 			$orderby_sql
 			$limit $offset
-			";
-/* echo $sql; die(); */
-
+		";
+			
 		//If we're only counting results, return the number of results
 		if( $count ){
 			return apply_filters('em_events_get_count', $wpdb->get_var($sql), $args);		
 		}
 		$results = $wpdb->get_results( apply_filters('em_events_get_sql',$sql, $args), ARRAY_A);
-
-		$total_rows = $wpdb->get_var($wpdb->prepare("SELECT FOUND_ROWS() AS `found_rows`;"));
-		global $total_events_rows;
-		$total_events_rows = $total_rows;
-
-
 
 		//If we want results directly in an array, why not have a shortcut here?
 		if( $args['array'] == true ){
@@ -218,8 +199,10 @@ class EM_Events extends EM_Object implements Iterator {
 			$event_count = 0;
 			$events_shown = 0;
 			foreach ( $events as $EM_Event ) {
+				if( ($events_shown < $limit || empty($limit)) && ($event_count >= $offset || $offset === 0) ){
 					$output .= $EM_Event->output($format);
 					$events_shown++;
+				}
 				$event_count++;
 			}
 			//Add headers and footers to output
@@ -232,11 +215,12 @@ class EM_Events extends EM_Object implements Iterator {
 			}
 			$output = $format_header .  $output . $format_footer;
 			//Pagination (if needed/requested)
+			if( !empty($args['pagination']) && !empty($limit) && $events_count > $limit ){
 				//Show the pagination links (unless there's less than $limit events)
 				$page_link_template = preg_replace('/(&|\?)page=\d+/i','',$_SERVER['REQUEST_URI']);
 				$page_link_template = em_add_get_params($page_link_template, array('page'=>'%PAGE%'));
-				global $total_events_rows;
-				$output .= em_paginate( $page_link_template, $total_events_rows, 10, $_GET['page']);
+				$output .= apply_filters('em_events_output_pagination', em_paginate( $page_link_template, $events_count, $limit, $page), $page_link_template, $events_count, $limit, $page);
+			}
 		} else {
 			$output = get_option ( 'dbem_no_events_message' );
 		}	

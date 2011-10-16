@@ -13,7 +13,7 @@ function em_install() {
 		add_action ( 'admin_notices', 'em_update_required_notification' );
 		return; 
    	}
-	if( EM_VERSION > $old_version || $old_version == ''){
+	if( EM_VERSION > $old_version || $old_version == '' ){
 	 	// Creates the events table if necessary
 		em_create_events_table(); 
 		em_create_events_meta_table();
@@ -339,7 +339,7 @@ function em_add_options() {
             </td>
             <td>
                 #_EVENTLINK<br/>
-                <i>#_LOCATIONNAME</i>
+                <i>#_LOCATIONNAME, #_LOCATIONTOWN #_LOCATIONSTATE</i>
             </td>
         </tr>',
 		'dbem_event_list_item_format_footer' => '</tbody></table>',

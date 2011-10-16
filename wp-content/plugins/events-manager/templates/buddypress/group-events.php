@@ -1,7 +1,5 @@
 <?php
-	
 	global $bp, $EM_Notices;
-
 	echo $EM_Notices;
 	$url = $bp->events->link . 'my-events/'; //url to this page
 	$order = ( !empty($_REQUEST ['order']) ) ? $_REQUEST ['order']:'ASC';
@@ -26,9 +24,6 @@
 	</div>
 		
 	<?php
-	//ERICLEWIS ADD LINK TO ADD NEW EVENT 
-	if( groups_is_user_admin()  || groups_is_user_mod() )
-		?><a href="<?php echo $url?>edit/" class="button add-new-h2"><?php _e('Add New','dbem'); ?></a><?php
 	if (empty ( $EM_Events )) {
 		// TODO localize
 		echo "<p>". __( 'No Events','dbem' ) ."</p>";

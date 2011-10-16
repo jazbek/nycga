@@ -7,8 +7,7 @@
  * In this template, we encode the $args array into JSON for javascript to easily parse and request the locations from the server via AJAX.
  */
 	/* @var $EM_Location EM_Location */
-	// var_dump($EM_Location);
-	if ( ( is_object($EM_Location) && $EM_Location->latitude != 0 && $EM_Location->longitude != 0 ) ) {
+	if ( get_option('dbem_gmap_is_active') && ( is_object($EM_Location) && $EM_Location->latitude != 0 && $EM_Location->longitude != 0 ) ) {
 		$width = (isset($args['width'])) ? $args['width']:'400';
 		$height = (isset($args['height'])) ? $args['height']:'300';
 		$rand = substr(md5(rand().rand()),0,5);

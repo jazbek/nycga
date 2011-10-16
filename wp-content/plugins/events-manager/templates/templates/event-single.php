@@ -13,18 +13,4 @@ if( $EM_Event->status == 1 ){
 }else{
 	echo get_option('dbem_no_events_message');
 }
-
-global $wpdb;
-
-$event_owner = $wpdb->get_results("SELECT event_owner FROM wp_em_events WHERE event_id={$EM_Event->id}");
-
-global $current_user;
-get_currentuserinfo();
-
-if( current_user_can('administrator') || groups_is_user_admin($current_user->ID, $EM_Event->group_id ) ) {
-	
-	echo '<a href="http://ga.loudfeed.org/members/' . $current_user->user_login .'/events/my-events/edit/?event_id='. $EM_Event->id .'">Edit this Event</a><BR><BR>';
-}
-
-
 ?>

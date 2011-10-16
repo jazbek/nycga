@@ -148,11 +148,11 @@ function bp_em_setup_nav() {
 		$group_link = $bp->root_domain . '/' . $bp->groups->slug . '/' . $bp->groups->current_group->slug . '/';
 		$user_access = $bp->groups->current_group->user_has_access;
 		if( !empty($bp->current_component) && $bp->current_component == 'groups' ){
-/* 			$count = EM_Events::count(array('group'=>$bp->groups->current_group->id)); */
-/* 			if( empty($count) ) $count = 0; */
+			$count = EM_Events::count(array('group'=>$bp->groups->current_group->id));
+			if( empty($count) ) $count = 0;
 		}
 		bp_core_new_subnav_item( array( 
-			'name' => sprintf(__( 'Events', 'dbem' ), $count),
+			'name' => sprintf(__( 'Events (%s)', 'dbem' ), $count),
 			'slug' => 'events', 
 			'parent_url' => $group_link, 
 			'parent_slug' => $bp->groups->current_group->slug, 

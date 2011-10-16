@@ -266,8 +266,6 @@ class EM_Event extends EM_Object{
 		if( !empty($_REQUEST['event_owner']) && is_numeric($_REQUEST['event_owner']) ){
 			$this->owner = current_user_can('edit_others_events') ? $_REQUEST['event_owner']:get_current_user_id();
 		}
-		else
-			$this->owner = get_current_user_id();
 		//categories
 		if( !empty($_POST['event_categories']) && is_array($_POST['event_categories']) ){
 			$this->categories = new EM_Categories($_POST['event_categories']);
@@ -361,6 +359,7 @@ class EM_Event extends EM_Object{
 			$this->status = 0;
 		}
 		$this->slug = $this->sanitize_title();
+		
 		//Now save the event
 		if ( !$this->id ) {
 			// Insert New Event
@@ -376,24 +375,6 @@ class EM_Event extends EM_Object{
 			if($result !== false){
 				//$event['event_date_created'] = current_time('mysql');
 				$this->id = $wpdb->insert_id;
-				
-				//select all recurrence posts of parent and then add the meta that way
-
-
-				if($_POST['location_meta']) {
-					global $event_parent_id;
-					$event_parent_id = $this->id;
-					add_action('admin_footer','save_recurrence_metadata');
-					add_action('wp_footer','save_recurrence_metadata');
-					$a = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM wp_em_meta WHERE object_id='{$EM_Event->id}' AND meta_key='short_location'" ) );
-					if($a) {
-						$query ="UPDATE wp_em_meta SET meta_value='{$_POST['location_meta']}' WHERE object_id='{$this->id}' AND meta_key='short_location')";
-						$wpdb->query( $query );
-					} else {
-						$query = "INSERT INTO wp_em_meta (meta_value, object_id, meta_key) VALUES ('{$_POST['location_meta']}','{$this->id}', 'short_location')";
-						$wpdb->query( $query );
-					}
-				}
 				$this->is_new = true;
 				//Add Tickets
 				if( !$this->get_bookings()->get_tickets()->save() ){
@@ -435,10 +416,8 @@ class EM_Event extends EM_Object{
 						$replacement = $dir."-{$this->id}.$mime_type";
 			  			copy(EM_IMAGE_UPLOAD_DIR . $file_name, EM_IMAGE_UPLOAD_DIR . $replacement);
 					}
-				}
+				}	
 			}
-			global $event_parent_id;
-			
 			$this->recurrence_id = 0; // If it's saved here, it becomes individual
 			$event = $this->to_array();
 			$event['event_attributes'] = serialize($event['event_attributes']);
@@ -446,20 +425,6 @@ class EM_Event extends EM_Object{
 			$event['event_date_modified'] = current_time('mysql');
 			$event = apply_filters('em_event_save_pre',$event,$this);
 			$result = $wpdb->update ( $events_table, $event, array('event_id' => $this->id), $this->get_types($event) );
-			if($_POST['location_meta']) {
-				$event_parent_id = $this->id;
-				add_action('admin_footer','save_recurrence_metadata');
-				add_action('wp_footer','save_recurrence_metadata');
-				$query = "SELECT COUNT(*) FROM wp_em_meta WHERE object_id='{$this->id}' AND meta_key='short_location'";
-				$a = $wpdb->get_var( $wpdb->prepare( $query ) );
-				if($a) {
-					$query ="UPDATE wp_em_meta SET meta_value='{$_POST['location_meta']}' WHERE object_id='{$this->id}' AND meta_key='short_location'";
-					$wpdb->query( $query );
-				} else {
-					$query = "INSERT INTO wp_em_meta (meta_value, object_id, meta_key) VALUES ('{$_POST['location_meta']}','{$this->id}', 'short_location')";
-					$wpdb->query( $query );
-				}
-			}
 			if($result !== false){ //Can't just do $result since if you don't make an actual record details change, it'll return 0 for no changes made
 				//Add Tickets
 				$this->feedback_message = "{$this->name} " . __ ( 'updated', 'dbem' ) . "!";
@@ -1404,27 +1369,4 @@ function em_event_output_placeholder($result,$event,$placeholder,$target='html')
 	return $result;
 }
 add_filter('em_event_output_placeholder','em_event_output_placeholder',1,4);
-
-function save_recurrence_metadata() {
-	global $event_parent_id, $wpdb;
-	$query = "SELECT event_id FROM wp_em_events WHERE recurrence_id='0'";
-	$recurring_events = $wpdb->get_results( $query );
-	foreach($recurring_events as $recurring_event) {
-		$query = "SELECT event_id FROM wp_em_events WHERE recurrence_id='{$recurring_event->event_id}'";
-		$child_events = $wpdb->get_results( $query );
-		
-		foreach($child_events as $child_event) {
-			$query = "SELECT COUNT(*) FROM wp_em_meta WHERE object_id='{$child_event->event_id}' AND meta_key='short_location'";
-			$a = $wpdb->get_var( $wpdb->prepare( $query ) );
-			if($a) {
-				$query ="UPDATE wp_em_meta SET meta_value='{$_POST['location_meta']}' WHERE object_id='{$child_event->event_id}' AND meta_key='short_location'";
-				$wpdb->query( $query );
-			} else {
-				$query = "INSERT INTO wp_em_meta (meta_value, object_id, meta_key) VALUES ('{$_POST['location_meta']}','{$child_event->event_id}', 'short_location')";
-				$wpdb->query( $query );
-			}
-		}
-	}
-	
-}
 ?>

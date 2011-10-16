@@ -216,7 +216,6 @@
 					<div id='em-map' style='width: 400px; height: 300px; display: none;'></div>
 					<?php endif; ?>
 				</div>
-				On-site location: <input type="text" name="location_meta" value="<? echo $_POST['location_meta']; ?>">
 			</div>
 			
 			<h4 class="event-form-details"><?php _e ( 'Details', 'dbem' ); ?></h4>

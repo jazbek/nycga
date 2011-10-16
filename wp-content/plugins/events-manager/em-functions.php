@@ -487,22 +487,4 @@ if( !function_exists('get_current_blog_id') ){
 function em_get_thumbnail_url($image_url, $width, $height){
 	return plugins_url('includes/thumbnails/timthumb.php', __FILE__).'?src='.$image_url.'&amp;h='. $height .'&amp;w='. $width;
 }
-
-
-add_filter('em_event_save', 'save_location_meta', 10, 2 );
-
-function save_location_meta($data, $also_data) {
-	global $wpdb;
-	if( ! $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM $wpdb->em_meta" ) ) ) {
-		$query = "INSERT INTO {$wpdb->prefix}em_meta (object_id, meta_key, meta_value) VALUES ($also_data->id, 'short_location','" . str_replace("'", "&#39;", $_POST['location_meta']) . "')";
-		// var_dump($query);
-		$wpdb->query($query);
-	} else {
-		$query = "UPDATE $wpdb->em_meta SET meta_value = '{$_POST['location_meta']}' WHERE object_id = '$also_data->id AND meta_key = 'short_location')";
-
-		$wpdb->query($query);
-	}
-	return $data;
-}
-
 ?>
