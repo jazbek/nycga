@@ -2,15 +2,16 @@
 
 	//TODO Simplify panel for events, use form flags to detect certain actions (e.g. submitted, etc)
 	global $wpdb, $bp, $EM_Event, $EM_Notices;
-	
+
+	$search = ( !empty($_REQUEST['em_search']) ) ? $_REQUEST['em_search']:'';
+
 	$url = $bp->events->link . 'my-events/'; //url to this page
 	$order = ( !empty($_REQUEST ['order']) ) ? $_REQUEST ['order']:'ASC';
-	$limit = ( !empty($_REQUEST['limit']) ) ? $_REQUEST['limit'] : 20;//Default limit
+	$limit = ( !empty($_REQUEST['limit']) ) ? $_REQUEST['limit'] : get_option('dbem_events_default_limit') ? get_option('dbem_events_default_limit') : 20;//Default limit
 	$page = ( !empty($_REQUEST['pno']) ) ? $_REQUEST['pno']:1;
 	$offset = ( $page > 1 ) ? ($page-1)*$limit : 0;
-	$search = ( !empty($_REQUEST['em_search']) ) ? $_REQUEST['em_search']:'';
 	$scope_names = em_get_scopes();
-	$scope = ( !empty($_REQUEST ['scope']) && array_key_exists($_REQUEST ['scope'], $scope_names) ) ? $_REQUEST ['scope']:'future';
+	$scope = ( !empty($_REQUEST['scope']) && array_key_exists($_REQUEST['scope'], $scope_names) ) ? $_REQUEST['scope']:'future';
 	if( array_key_exists('status', $_REQUEST) ){
 		$status = ($_REQUEST['status']) ? 1:0;
 	}else{
@@ -24,45 +25,45 @@
 		'owner' => get_current_user_id(),
 		'status' => $status
 	);
-	$EM_Events = EM_Events::get( $args );
-	$events_count = count ( $EM_Events );
-	$future_count = EM_Events::count( array('status'=>1, 'owner' =>get_current_user_id(), 'scope' => 'future'));
+
+	$events_count = EM_Events::get($args, true);
+	$args['limit'] = $limit;
+	$args['page'] = $page;
+	$args['offset'] = $offset;
+	
+	$EM_Events = EM_Events::get($args);
+
+	$future_count = EM_Events::count( array('status'=>1, 'owner' =>get_current_user_id(), 'scope' => 'future',));
+	$past_count = EM_Events::count( array('status'=>1, 'owner' =>get_current_user_id(), 'scope' => 'past',));
 	$pending_count = EM_Events::count( array('status'=>0, 'owner' =>get_current_user_id(), 'scope' => 'all') );
 	$use_events_end = get_option('dbem_use_event_end');
 	?>
 	<div class="wrap">
 		<?php echo $EM_Notices; ?>
 		<form id="posts-filter" action="<?php echo $url; ?>" method="get">
- 	 		<?php if(current_user_can('edit_events')): ?><a href="<?php echo $url?>edit/" class="button add-new-h2"><?php _e('Add New','dbem'); ?></a><?php endif; ?>
+<!--  	 		<?php if(current_user_can('edit_events')): ?><a href="<?php echo $url?>edit/" class="button add-new-h2"><?php _e('Add New','dbem'); ?></a><?php endif; ?> -->
 			<div class="subsubsub">
 				<a href='<?php echo $url; ?>' <?php echo ( !isset($_GET['status']) ) ? 'class="current"':''; ?>><?php _e ( 'Upcoming', 'dbem' ); ?> <span class="count">(<?php echo $future_count; ?>)</span></a> &nbsp;|&nbsp; 
 				<?php if( !current_user_can('publish_events') ): ?>
 				<a href='<?php echo $url ?>?status=0' <?php echo ( isset($_GET['status']) && $_GET['status']=='0' ) ? 'class="current"':''; ?>><?php _e ( 'Pending', 'dbem' ); ?> <span class="count">(<?php echo $pending_count; ?>)</span></a> &nbsp;|&nbsp; 
 				<?php endif; ?>
-				<a href='<?php echo $url; ?>?scope=past' <?php echo ( !empty($_REQUEST['scope']) && $_REQUEST['scope'] == 'past' ) ? 'class="current"':''; ?>><?php _e ( 'Past Events', 'dbem' ); ?></a>
+				<a href='<?php echo $url; ?>?scope=past' <?php echo ( !empty($_REQUEST['scope']) && $_REQUEST['scope'] == 'past' ) ? 'class="current"':''; ?>><?php _e ( 'Past Events', 'dbem' ); ?> <span class="count">(<?php echo $past_count; ?>)</span></a>
 			</div>
-			<p class="search-box">
+			<p class="em-events-search">
 				<label class="screen-reader-text" for="post-search-input"><?php _e('Search Events','dbem'); ?>:</label>
 				<input type="text" id="post-search-input" name="em_search" value="<?php echo (!empty($_REQUEST['em_search'])) ? $_REQUEST['em_search']:''; ?>" />
 				<input type="submit" value="<?php _e('Search Events','dbem'); ?>" class="button" />
 			</p>			
-			<div class="tablenav">
-				<?php
-				if ( $events_count >= $limit ) {
-					$events_nav = em_admin_paginate( $events_count, $limit, $page);
-					echo $events_nav;
-				}
-				?>
-				<br class="clear" />
-			</div>
-				
-			<?php
-			if (empty ( $EM_Events )) {
-				// TODO localize
-				_e ( 'no events','dbem' );
-			} else {
-			?>
-					
+<?php if( $events_count > 0 ){ ?>
+				<?php if ( $events_count >= $args['limit'] ) : ?>
+					<div class="tablenav">
+					<?php 
+					require_once(EM_DIR . '/admin/em-admin.php');
+					$events_nav = em_admin_paginate( $events_count, $args['limit'], $args['page']);
+					echo $events_nav; ?>
+					<div style="clear: both"></div>
+					</div>
+				<?php endif; ?>
 			<table class="widefat events-table">
 				<thead>
 					<tr>
@@ -71,13 +72,10 @@
 							<input class='select-all' type="checkbox" value='1' />
 						</th>
 						*/ ?>
-						<th><?php _e ( 'Name', 'dbem' ); ?></th>
-						<th>&nbsp;</th>
-						<th><?php _e ( 'Location', 'dbem' ); ?></th>
-						<th><?php _e ( 'Date and time', 'dbem' ); ?></th>
-						<?php if( current_user_can('delete_events')) :?>
-						<th>Actions</th>
-						<?php endif; ?>
+						<th class="event-datetime"><?php _e ( 'Info', 'dbem' ); ?></th>
+						<th class="event-group">Group</th>
+<!-- 						<th class="event-location"><?php _e ( 'Details', 'dbem' ); ?></th> -->
+						<th class="event-name"><?php _e ( 'Description', 'dbem' ); ?></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -86,15 +84,13 @@
 					$event_count = 0;
 					foreach ( $EM_Events as $event ) {
 						/* @var $event EM_Event */
-						if( ($rowno < $limit || empty($limit)) && ($event_count >= $offset || $offset === 0) ) {
 							$rowno++;
 							$class = ($rowno % 2) ? 'alternate' : '';
 							// FIXME set to american
-							$localised_start_date = date_i18n('D d M Y', $event->start);
-							$localised_end_date = date_i18n('D d M Y', $event->end);
+							$localised_start_date = date_i18n('M d y', $event->start);
+							$localised_end_date = date_i18n('M d y', $event->end);
 							$style = "";
 							$today = date ( "Y-m-d" );
-							$location_summary = "<b>" . $event->location->name . "</b><br/>" . $event->location->address . " - " . $event->location->town;
 							
 							if ($event->start_date < $today && $event->end_date < $today){
 								$class .= " past";
@@ -102,91 +98,81 @@
 							//Check pending approval events
 							if ( !$event->status ){
 								$class .= " pending";
-							}					
+							}
+							
+							$event_group = groups_get_group( array( 'group_id' => $event->group_id ) );
+												
 							?>
 							<tr class="event <?php echo trim($class); ?>" <?php echo $style; ?> id="event_<?php echo $event->id ?>">
-								<?php /*
-								<td>
-									<input type='checkbox' class='row-selector' value='<?php echo $event->id; ?>' name='events[]' />
+								
+								<td class="event-datetime">
+									<div class="event-date">
+										<?php echo strtotime($localised_start_date) == strtotime('today') ? _e('Today') : date('M d', strtotime($localised_start_date)) . '<br><span>'.date('Y', strtotime($localised_start_date)).'</span>'; ?>
+									</div>
+									<div class="event-time"><?php
+										//TODO Should 00:00 - 00:00 be treated as an all day event? 
+										echo date('g:ia', strtotime($event->start_time)) ?> - <?php echo ($localised_end_date != $localised_start_date) ? $localised_end_date . ' @' : '' ?>
+										<?php echo date('g:ia', strtotime($event->end_time)); 
+									?></div>
+									<p style="margin: 10px 0"><?php echo $event->location->name?></p>
+<!-- 									<?php echo $event->location->address ?> - <?php echo $event->location->town; ?><br/> -->
+									<?php echo $event->attributes['Location Details'] ?>
 								</td>
-								*/ ?>
-								<td>
-									<strong>
-										<a class="row-title" href="<?php echo $url; ?>edit/?event_id=<?php echo $event->id ?>"><?php echo ($event->name); ?></a>
-									</strong>
+								<td class="event-group">
+									<?php if ($event->group_id > 0) : ?>
+										<a href="<?php echo bp_get_group_permalink($event_group) ?>"><?php echo bp_core_fetch_avatar('object=group&item_id='.$event_group->id) ?><br/>
+										<small><?php echo $event_group->name ?></small></a>
+									<?php else : ?>
+										<small>General</small>
+									<?php endif; ?>
+								</td>
+								<td class="event-title">
+									<p><a class="row-title" href="/events?event_id=<?php echo $event->id ?>"><?php echo ($event->name); ?></a></p>
 									<?php 
 									if( get_option('dbem_rsvp_enabled') == 1 && $event->rsvp == 1 ){
 										?>
 										<br/>
-										<a href="<?php echo $url ?>bookings/?event_id=<?php echo $event->id ?>"><?php echo __("Bookings",'dbem'); ?></a> &ndash;
-										<?php _e("Booked",'dbem'); ?>: <?php echo $event->get_bookings()->get_booked_spaces()."/".$event->get_spaces(); ?>
 										<?php if( get_option('dbem_bookings_approval') == 1 ): ?>
 											| <?php _e("Pending",'dbem') ?>: <?php echo $event->get_bookings()->get_pending_spaces(); ?>
 										<?php endif;
 									}
+									
 									?>
-									<!--
-<div class="row-actions">
-										<?php if( current_user_can('delete_events')) : ?>
-										<span class="trash"><a href="<?php echo $url ?>?action=event_delete&amp;event_id=<?php echo $event->id ?>" class="em-event-delete"><?php _e('Delete','dbem'); ?></a></span>
+									<?php echo $event->output('<p>#_EXCERPT</p>');  ?>
+									<?php echo $event->is_recurrence() ? '<p class="recurrence-descr">' . $event->get_recurrence_description() . '</p>' : ''; ?>
+									<?php if ((groups_is_user_admin(get_current_user_id(), $event->group_id) || groups_is_user_mod(get_current_user_id(), $event->group_id)) || get_current_user_id() == $event->id || current_user_can('edit_others_events') || current_user_can('delete_others_events')) : ?>
+										<div class="event-actions">
+										<?php if ((groups_is_user_admin(get_current_user_id(), $event->group_id) || groups_is_user_mod(get_current_user_id(), $event->group_id)) || get_current_user_id() == $event->id || current_user_can('edit_others_events')) : ?>
+											&nbsp;<a class="button bp-secondary-action" href="<?php echo $url ?>edit/?event_id=<?php echo $event->id ?>" title="<?php _e ( 'Edit this event', 'dbem' ); ?>"><?php _e ( 'Edit', 'dbem' ); ?></a>
 										<?php endif; ?>
-									</div>
--->
-								</td>
-								<td>
-									<a href="<?php echo $url ?>edit/?action=event_duplicate&amp;event_id=<?php echo $event->id ?>" title="<?php _e ( 'Duplicate this event', 'dbem' ); ?>">
-										<strong>+</strong>
-									</a>
-								</td>
-								<td>
-									<?php echo $location_summary; ?>
-									<?php if( is_object($category) && !empty($category->name) ) : ?>
-									<br/><span class="category"><strong><?php _e( 'Category', 'dbem' ); ?>: </strong><?php echo $category->name ?></span>
+										<?php if ((groups_is_user_admin(get_current_user_id(), $event->group_id) || groups_is_user_mod(get_current_user_id(), $event->group_id)) || get_current_user_id() == $event->id || current_user_can('delete_others_events')) : ?>
+											<a class="button bp-secondary-action" href="<?php echo $url ?>edit/?action=event_duplicate&amp;event_id=<?php echo $event->id ?>" title="<?php _e ( 'Duplicate this event', 'dbem' ); ?>">Duplicate</a>
+										<?php endif; ?>
+										<?php if ((groups_is_user_admin(get_current_user_id(), $event->group_id) || groups_is_user_mod(get_current_user_id(), $event->group_id)) || get_current_user_id() == $event->id || current_user_can('delete_others_events')) : ?>
+											<span class="trash">&nbsp;<a class="button bp-secondary-action" href="<?php echo $url ?>?action=event_delete&amp;event_id=<?php echo $event->id ?>" class="em-event-delete"  title="<?php _e ( 'Delete this event', 'dbem' ); ?>" onclick ="if( !confirm('Are you sure? This cannot be undone.') ){ return false; }"><?php _e('Delete','dbem'); ?></a></span>
+										<?php if ( $event->is_recurrence() && $event->can_manage('edit_events','edit_others_events') ) : $recurrence_delete_confirm = __('WARNING! You will delete ALL recurrences of this event.','dbem'); ?>
+											<span class="trash">&nbsp;<a class="button bp-secondary-action" href="<?php echo $url ?>?action=event_delete&amp;event_id=<?php echo $event->recurrence_id ?>&scope=future" class="em-event-rec-delete" title="<?php _e ( 'Delete this series', 'dbem' ); ?>" onclick ="if( !confirm('<?php echo $recurrence_delete_confirm; ?>') ){ return false; }"><?php _e('Delete Series','dbem'); ?></a></span>
+										<?php endif; ?>
+										</div>
 									<?php endif; ?>
-								</td>
-						
-								<td>
-									<?php echo $localised_start_date; ?>
-									<?php echo ($localised_end_date != $localised_start_date) ? " - $localised_end_date":'' ?>
-									<br />
-									<?php
-										//TODO Should 00:00 - 00:00 be treated as an all day event? 
-										echo substr ( $event->start_time, 0, 5 ) . " - " . substr ( $event->end_time, 0, 5 ); 
-									?>
-								</td>
-					<?php if( current_user_can('delete_events')) :?>
-						<td>
-							<?php echo $event->is_recurrence() ? $event->get_recurrence_description() : ''; ?><br />
-							&nbsp;<a href="<?php echo $url ?>edit/?event_id=<?php echo $event->id ?>"><?php _e ( 'Edit', 'dbem' ); ?></a>
-							<span class="trash">&nbsp;<a href="<?php echo $url ?>?action=event_delete&amp;event_id=<?php echo $event->id ?>" class="em-event-delete"><?php _e('Delete','dbem'); ?></a></span>
-							<?php if ( $event->is_recurrence() && $event->can_manage('edit_events','edit_others_events') ) : 								$recurrence_delete_confirm = __('WARNING! You will delete ALL recurrences of this event, including booking history associated with any event in this recurrence. To keep booking information, go to the relevant single event and save it to detach it from this recurrence series.','dbem'); ?>
-							<span class="trash">&nbsp;<a href="<?php echo $url ?>?action=event_delete&amp;event_id=<?php echo $event->recurrence_id ?>&scope=future" class="em-event-rec-delete" onclick ="if( !confirm('<?php echo $recurrence_delete_confirm; ?>') ){ return false; }"><?php _e('Delete Series','dbem'); ?></a></span>
-							<?php endif; ?>										
-						</td>
+								</td>						
 					<?php endif; ?>
 							</tr>
 							<?php
-						}
-						$event_count++;
 					}
 					?>
 				</tbody>
 			</table>  
-			<?php
-			} // end of table
-			?>
-			<div class='tablenav'>
-				<div class="alignleft actions">
-				<br class='clear' />
-				</div>
-				<?php if ( $events_count >= $limit ) : ?>
-				<div class="tablenav-pages">
-					<?php
+			<div class="tablenav">
+				<?php
+				if ( $events_count >= $args['limit'] ) {
 					echo $events_nav;
-					?>
-				</div>
-				<?php endif; ?>
-				<br class='clear' />
+				}
+				?>
+				<br class="clear" />
 			</div>
-		</form>
-	</div>
+<?php
+}else{
+	echo get_option ( 'dbem_no_events_message' );
+}
+?></form></div>

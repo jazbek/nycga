@@ -1,5 +1,31 @@
 <?php
 	global $EM_Event, $current_user, $localised_date_formats, $EM_Notices, $bp;
+	if( empty($EM_Event->group_id) ) {
+		// check that group_id was passed and that the group exists
+		if ( ! ( is_numeric($_REQUEST['group_id']) 
+			&& $group = groups_get_group( array( 'group_id' => $_REQUEST['group_id'] ) )
+		) )
+		{
+			?>
+			<div class="wrap"><h2><?php _e('Unauthorized Access','dbem'); ?></h2><p><?php echo sprintf(__('You do not have the rights to manage this %s.','dbem'),__('Event','dbem')); ?></p></div>
+			<?php
+			return false;
+		}
+		
+		// check if current user is admin or mod of the passed group
+		if ( ! ( groups_is_user_admin(get_current_user_id(), $group->id ) || groups_is_user_mod(get_current_user_id(), $group->id ) ) )
+		{
+			?>
+			<div class="wrap"><h2><?php _e('Unauthorized Access','dbem'); ?></h2><p><?php echo sprintf(__('You do not have the rights to manage this %s.','dbem'),__('Event','dbem')); ?></p></div>
+			<?php
+			return false;
+		}
+	} else {
+		// if event already has a group
+		$group = groups_get_group( array( 'group_id' => $EM_Event->group_id ) );
+	}
+?>	
+<?php
 	//check that user can access this page
 	if( is_object($EM_Event) && !$EM_Event->can_manage('edit_events','edit_others_events') ){
 		?>
@@ -49,7 +75,7 @@
 			<?php if ( count($EM_Event->warnings) > 0 ) : ?>
 				<?php foreach($EM_Event->warnings as $warning): ?>
 				<p class="em-warning">
-					<?php echo $warning; ?>
+					<?php echo str_replace(array('WARNING: This is a event belonging to the group', 'Other group admins can also modify this event'), array('Note: This event belongs to the group ', 'Other group admins and mods can also modify this event'), $warning); ?>
 					<?php if( $EM_Event->recurrence_id > 0) : ?>
 					<br />Alternatively, you can <a href="<?php echo $url ?>edit/?event_id=<?php echo $EM_Event->recurrence_id ?>"> <?php _e ( 'edit the event series', 'dbem' ); ?></a>.
 					<?php endif; ?>
@@ -57,48 +83,28 @@
 				<?php endforeach; ?>
 			<?php endif; ?>        
 			
+			<fieldset>
+			<legend>Basic Info</legend>
+
 			<?php do_action('em_front_event_form_header'); ?>
-			
-			<h4 class="event-form-name"><?php _e ( 'Event Name', 'dbem' ); ?></h4>
+			<?php if (empty($EM_Event->event_owner)) : ?>
+				<input type="hidden" name="event_owner" value="<?php echo get_current_user_id() ?>" />
+			<?php endif; ?>
 			<div class="inside event-form-name">
+			<label class="event-form-name"><?php _e ( 'Event Name', 'dbem' ); ?></label>
 				<input type="text" name="event_name" id="event-name" value="<?php echo htmlspecialchars($EM_Event->name,ENT_QUOTES); ?>" />
-				<br />
-				<?php _e ( 'The event name. Example: Birthday party', 'dbem' )?>
+<!-- 				<p class="note"><?php _e ( 'The event name. Example: Birthday party', 'dbem' )?></p> -->
 				<?php if( empty($EM_Event->group_id) ): ?>
-					<?php 
-					$user_groups = array();
-					if( !empty($bp->groups) ){
-						$group_data = groups_get_user_groups(get_current_user_id());
-						foreach( $group_data['groups'] as $group_id ){
-							if( groups_is_user_admin(get_current_user_id(), $group_id) ){
-								$user_groups[] = groups_get_group( array('group_id'=>$group_id)); 
-							}
-						}
-					} 
-					?>
-					<?php if( count($user_groups) > 0 ): ?>
-					<p>
-						<select name="group_id">
-							<option value="<?php echo $BP_Group->id; ?>">Not a Group Event</option>
-						<?php
-						foreach($user_groups as $BP_Group){
-							?>
-							<option value="<?php echo $BP_Group->id; ?>"<?php echo $_REQUEST['group_id'] == $BP_Group->id ? ' selected="selected"' : '' ?>><?php echo $BP_Group->name; ?></option>
-							<?php
-						} 
-						?>
-						</select>
-						<br />
-						<?php _e ( 'Select a group you admin to attach this event to it. Note that all other admins of that group can modify the booking, and you will not be able to unattach the event without deleting it.', 'dbem' )?>
-					</p>
-					<?php endif; ?>
+				<input type="hidden" name="group_id" value="<?php echo $EM_Event->group_id ? $EM_Event->group_id : $_REQUEST['group_id'] ?>" />
 				<?php endif; ?>
 			</div>
-						
-			<h4 class="event-form-when"><?php _e ( 'When', 'dbem' ); ?></h4>
+			<label for="group">Group</label><input type="text" style="color: #555; border: 0; padding: 6px;" readonly="readonly" value="<?php echo $group->name; ?>"/>
+			</fieldset>
+				
+			<fieldset><legend class="event-form-when"><?php _e ( 'When', 'dbem' ); ?></legend>
 			<div class="inside event-form-when">
 				<div>
-					<?php _e ( 'Starts on ', 'dbem' ); ?>					
+					<label for="event_start_date"><?php _e ( 'Starts on ', 'dbem' ); ?></label>
 					<input id="em-date-start-loc" type="text" />
 					<input id="em-date-start" type="hidden" name="event_start_date" value="<?php echo $EM_Event->start_date ?>" />
 					<?php _e('from','dbem'); ?>
@@ -168,9 +174,9 @@
 							&nbsp;
 						</p>
 						
-						<p id="recurrence-tip">
-							<?php _e ( 'Check if your event happens more than once according to a regular pattern', 'dbem' )?>
-						</p>
+<!-- 						<p id="recurrence-tip"> -->
+<!-- 							<?php _e ( 'Check if your event happens more than once according to a regular pattern', 'dbem' )?> -->
+<!-- 						</p> -->
 					<?php elseif( $EM_Event->is_recurrence() ) : ?>
 							<p>
 								<?php echo $EM_Event->get_recurrence_description(); ?>
@@ -182,84 +188,131 @@
 					<?php else : ?>
 						<p><?php _e ( 'This is\'t a recurrent event', 'dbem' ) ?></p>
 					<?php endif; ?>
-				</div>
+				</fieldset>
 				<!-- END recurrence postbox -->   
 			<?php endif; ?>
 			
-			
-			<h4 class="event-form-where"><?php _e ( 'Where', 'dbem' ); ?></h4>
+			<fieldset>
+			<legend class="event-form-where"><?php _e ( 'Where', 'dbem' ); ?></legend>
+				<?php $name = 'Location Details'; ?>
+				<label for="em_attributes[<?php echo $name ?>]"><?php echo $name ?></label> <input type="text" name="em_attributes[<?php echo $name ?>]" value="<?php echo array_key_exists($name, $EM_Event->attributes) ? htmlspecialchars($EM_Event->attributes[$name], ENT_QUOTES):''; ?>" />
+				<label></label><p class="note">Ex.  "Under the Red Statue"</p>
+				<?php $attrs_ouput[] = $name; ?>
 			<div class="inside event-form-where">
-				<div id="em-location-data" style="padding-right:20px; vertical-align:top;">
-					<?php
-						$args = array();
-						$args['owner'] = current_user_can('read_others_locations') ? false:get_current_user_id(); 
-						$locations = EM_Locations::get($args); 
-					?>
-					<?php  if( count($locations) > 0): ?>
-					<select name="location_id" id='location-select-id' size="1">  
-						<?php 
-						foreach($locations as $location) {    
-							$selected = "";  
-							if( is_object($EM_Event->location) )  {
-								if ($EM_Event->location->id == $location->id) 
-									$selected = "selected='selected' ";
-							}
-					   		?>          
-					    	<option value="<?php echo $location->id ?>" title="<?php echo "{$location->latitude},{$location->longitude}" ?>" <?php echo $selected ?>><?php echo $location->name; ?></option>
-					    	<?php
-						}
-						?>
-					</select>
-					<?php endif; ?>
-					<p><?php _e ( 'Choose from one of your locations', 'dbem' )?> <?php echo sprintf(__('or <a href="%s">add a new location</a>','dbem'),$bp->events->link . 'my-locations/add/'); ?></p>
-				
 					<?php if ( get_option ( 'dbem_gmap_is_active' ) ) : ?>
 					<div id='em-map-404' style='width: 400px; vertical-align:middle; text-align: center;'>
 						<p><em><?php _e ( 'Location not found', 'dbem' ); ?></em></p>
 					</div>
-					<div id='em-map' style='width: 400px; height: 300px; display: none;'></div>
+					<div id='em-map' style='float: right; width: 400px; height: 300px; display: none;'></div>
 					<?php endif; ?>
+				<div id="em-location-data" style="padding-right:20px; vertical-align:top;">
+							<?php if($use_select_for_locations) : ?> 
+								<label for="location_id"><?php _e('Location:','dbem') ?></label>
+									<select name="location_id" id='location-select-id' size="1">  
+										<?php 
+										$locations = EM_Locations::get();
+										foreach($locations as $location) {    
+											$selected = "";  
+											if ($EM_Event->get_location()->id == $location->id){ 
+												$selected = "selected='selected' ";
+											}
+									   		?>          
+									    	<option value="<?php echo $location->id ?>" title="<?php echo "{$location->latitude},{$location->longitude}" ?>" <?php echo $selected ?>><?php echo $location->name; ?></option>
+									    	<?php
+										}
+										?>
+									</select>
+									<p><?php _e ( 'The name of the location where the event takes place. You can use the name of a venue, a square, etc', 'dbem' )?></p>
+							<?php else : ?>
+
+								<label for="location_id"><?php _e ( 'Location Name' )?></label>
+								<input id='location-id' name='location_id' type='hidden' value='<?php echo $EM_Event->get_location()->id; ?>' size='15' />
+								<input id="location-name" type="text" name="location_name" value="<?php echo htmlspecialchars($EM_Event->location->name, ENT_QUOTES); ?>" /><?php echo $required; ?>													
+                        		<p class="note"><?php _e ( 'Create a location or start typing to search a previously created location.', 'dbem' )?></p>
+                        		<p class="note" id="em-location-reset" style="display:none;"><?php _e('You cannot edit saved locations here.', 'dbem'); ?> <a href="javascript:void(0)"><?php _e('Clear these fields to create a new location.', 'dbem')?></a></p>
+
+								<label for="location_address"><?php _e ( 'Address' )?>&nbsp;</label>
+								<input id="location-address" type="text" name="location_address" value="<?php echo htmlspecialchars($EM_Event->location->address, ENT_QUOTES); ; ?>" /><?php echo $required; ?>
+
+								<label for="location_town"><?php _e ( 'City/Town' )?>&nbsp;</label>
+								<input id="location-town" type="text" name="location_town" value="<?php echo htmlspecialchars($EM_Event->location->town, ENT_QUOTES); ?>" /><?php echo $required; ?>
+								<input id="location-town-wpnonce" type="hidden" value="<?php echo wp_create_nonce('search_town'); ?>" />
+
+								<label for="location_state"><?php _e ( 'State/County' )?>&nbsp;</label>
+								<input id="location-state" type="text" name="location_state" value="<?php echo htmlspecialchars($EM_Event->location->state, ENT_QUOTES); ?>" />
+								<input id="location-state-wpnonce" type="hidden" value="<?php echo wp_create_nonce('search_states'); ?>" />
+
+								<label for="location_postcode"><?php _e ( 'Postcode' )?>&nbsp;</label>
+								<input id="location-postcode" type="text" name="location_postcode" value="<?php echo htmlspecialchars($EM_Event->location->postcode, ENT_QUOTES); ?>" />
+
+<!--
+								<label for="location_region"><?php _e ( 'Region' )?>&nbsp;</label>
+								<input id="location-region" type="text" name="location_region" value="<?php echo htmlspecialchars($EM_Event->location->region, ENT_QUOTES); ?>" />
+								<input id="location-region-wpnonce" type="hidden" value="<?php echo wp_create_nonce('search_regions'); ?>" />
+-->
+
+								<label for="location_country"><?php _e ( 'Country' )?>&nbsp;</label>
+								<select id="location-country" name="location_country" style="width: 155px">
+									<option value="0" <?php echo ( $EM_Event->location->country == '' && $EM_Event->location->id == '' && get_option('dbem_location_default_country') == '' ) ? 'selected="selected"':''; ?>><?php _e('none selected','dbem'); ?></option>
+									<?php foreach(em_get_countries() as $country_key => $country_name): ?>
+									<option value="<?php echo $country_key; ?>" <?php echo ( $EM_Event->location->country == $country_key || ($EM_Event->location->country == '' && $EM_Event->location->id == '' && get_option('dbem_location_default_country')==$country_key) ) ? 'selected="selected"':''; ?>><?php echo $country_name; ?></option>
+									<?php endforeach; ?>
+								</select><?php echo $required; ?>
+									<!-- <p><em><?php _e('Filling this in first will allow you to quickly find previously filled states and regions for the country.','dbem'); ?></em></p> -->
+							<?php endif; ?>
 				</div>
-				On-site location: <input type="text" name="location_meta" value="<? echo $_POST['location_meta']; ?>">
-			</div>
+			<div style="clear: both"></div>
+			</fieldset>
 			
-			<h4 class="event-form-details"><?php _e ( 'Details', 'dbem' ); ?></h4>
+			<fieldset>
+			<legend>Details</legend>
+			<label for="content" class="event-form-details"><?php _e ( 'Description', 'dbem' ); ?></label>
 			<div class="inside event-form-details">
 				<div>
-					<textarea name="content" rows="10" style="width:100%"><?php echo $EM_Event->notes ?></textarea>
+					<textarea name="content" rows="10" class="whats-new"><?php echo $EM_Event->notes ?></textarea>
 					<br />
-					<?php _e ( 'Details about the event.', 'dbem' )?><?php _e ( 'HTML Allowed.', 'dbem' )?>
+					<label></label><?php _e ( 'Details about the event.', 'dbem' )?> <?php _e ( 'HTML Allowed.', 'dbem' )?>
 				</div>
+				</fieldset>
+				<fieldset>
 				<div>
 				<?php if(get_option('dbem_categories_enabled')) :?>
 					<?php $categories = EM_Categories::get(array('orderby'=>'category_name')); ?>
 					<?php if( count($categories) > 0 ): ?>
 						<!-- START Categories -->
-						<label for="event_categories[]"><?php _e ( 'Category:', 'dbem' ); ?></label>
-						<select name="event_categories[]" multiple size="10">
+						<label for="event_categories"><?php _e ( 'Category', 'dbem' ); ?></label>
+							<select name="event_categories[]">
+							<option value="">Select a category</option>
 							<?php
 							foreach ( $categories as $EM_Category ){
-								$selected = ($EM_Event->get_categories()->has($EM_Category->id)) ? "selected='selected'": ''; 
-								?>
-								<option value="<?php echo $EM_Category->id ?>" <?php echo $selected ?>>
-								<?php echo $EM_Category->name ?>
-								</option>
-								<?php 
+								if ($EM_Category->id != '2')
+								{
+									$selected = (current($_POST['event_categories']) == $EM_Category->id || $EM_Event->get_categories()->has($EM_Category->id)) ? "selected='selected'": ''; 
+									?>
+									<option value="<?php echo $EM_Category->id ?>" <?php echo $selected ?>>
+									<?php echo $EM_Category->name ?></span>
+									<?php 
+								}
 							}
 							?>
-						</select>						
+							</select>
 						<!-- END Categories -->
 					<?php endif; ?>
 				<?php endif; ?>	
 				</div>
-			
+				</fieldset>
+				
+				
 				<?php if(get_option('dbem_attributes_enabled')) : ?>
+				<fieldset>
+<!-- 				<legend>Additional Details</legend> -->
 					<?php
 					$attributes = em_get_attributes();
 					$has_depreciated = false;
 					?>
 					<?php if( count( $attributes['names'] ) > 0 ) : ?>
-						<?php foreach( $attributes['names'] as $name) : ?>
+						<?php foreach( $attributes['names'] as $name) : 
+							if ( ! in_array($name, $attrs_ouput) ) : ?>
 						<div>
 							<label for="em_attributes[<?php echo $name ?>]"><?php echo $name ?></label>
 							<?php if( count($attributes['values'][$name]) > 0 ): ?>
@@ -276,10 +329,12 @@
 							<input type="text" name="em_attributes[<?php echo $name ?>]" value="<?php echo array_key_exists($name, $EM_Event->attributes) ? htmlspecialchars($EM_Event->attributes[$name], ENT_QUOTES):''; ?>" />
 							<?php endif; ?>
 						</div>
-						<?php endforeach; ?>
+						<?php endif; endforeach; ?>
 					<?php endif; ?>
-				<?php endif; ?>
+				</fieldset>
 			</div>
+				<?php endif; ?>
+			
 			
 			<?php if( get_option('dbem_rsvp_enabled') && $EM_Event->can_manage('manage_bookings','manage_others_bookings') ) : ?>
 				<!-- START Bookings -->
@@ -403,9 +458,9 @@
 				<!-- END Bookings -->
 			<?php endif; ?>
 			<?php do_action('em_front_event_form_footer'); ?>
-		</div>
+<!-- 		</div> -->
 		<p class="submit">
-			<input type="submit" name="events_update" value="<?php _e ( 'Submit Event', 'dbem' ); ?> &raquo;" />
+			<label for="events_update">&nbsp;</label><input style="display: block" type="submit" name="events_update" value="<?php _e ( 'Save Event', 'dbem' ); ?> &raquo;" />
 		</p>
 		<input type="hidden" name="event_id" value="<?php echo $EM_Event->id; ?>" />
 		<input type="hidden" name="_wpnonce" value="<?php echo wp_create_nonce('wpnonce_event_save'); ?>" />
@@ -423,6 +478,21 @@
 				}
 			});
 			<?php endif; ?>
+			if ($('input#location-id').val() != '')
+			{
+				jQuery('#em-location-data input, #em-location-data select').attr('disabled','disabled');
+				jQuery('#em-location-data input#location-name, #em-location-data input#location-id').removeAttr('disabled');
+			}
+			jQuery('input#location-id').change(function(){
+				jQuery('#em-location-data input, #em-location-data select').attr('disabled','disabled');
+				jQuery('#em-location-data input#location-name, #em-location-data input#location-id').removeAttr('disabled');
+			})
+			$('#em-location-reset').click( function(){
+				$('#em-location-data input').removeAttr('disabled');
+				$('#em-location-data select').removeAttr('disabled');
+				$('#em-location-data option:selected').removeAttr('disabled');
+				$('#em-location-reset').hide();
+			});			
 			//RSVP Warning
 			$('#bookings-checkbox').click( function(event){
 				if( !this.checked ){

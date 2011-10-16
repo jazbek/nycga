@@ -17,7 +17,7 @@
 	//convert scope to an array in event of pagination
 	if(!empty($_REQUEST['scope']) && !is_array($_REQUEST['scope'])){ $_REQUEST['scope'] = explode(',',$_REQUEST['scope']); }
 	?>
-	<form action="<?php echo EM_URI; ?>" method="get" class="em-events-search-form">
+	<form action="" method="get" class="em-events-search-form">
 		<?php do_action('em_template_events_search_form_header'); ?>
 		<!-- START General Search -->
 		<?php /* This general search will find matches within event_name, event_notes, and the location_name, address, town, state and country. */ ?>
@@ -41,7 +41,7 @@
 			<?php endforeach; ?>
 		</select>
 		<!-- END Category Search -->
-		<?php if ( bp_has_groups() ) : //Jessica ?> 
+		<?php if ( ! bp_is_group() && bp_has_groups() ) : //Jessica ?> 
 		<!-- START Group Search -->
 		<select name="group" class="em-events-search-category">
 			<option value=''><?php _e('All Groups','dbem'); ?></option>
@@ -52,6 +52,9 @@
 		</select>
 		<!-- END Group Search -->
 		<?php endif; //Jessica end ?>
+		<?php if (bp_is_group()) : ?> 
+			<input type="hidden" name="group" value="<?php echo bp_get_current_group_id() ?>" />
+		<?php endif; ?>
 <?php /*?>		<!-- START Country Search -->
 		<select name="country" class="em-events-search-country">
 			<option value=''><?php _e('All Countries','dbem'); ?></option>
