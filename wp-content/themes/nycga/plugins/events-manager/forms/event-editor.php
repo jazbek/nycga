@@ -99,6 +99,30 @@
 				<?php endif; ?>
 			</div>
 			<label for="group">Group</label><input type="text" style="color: #555; border: 0; padding: 6px;" readonly="readonly" value="<?php echo $group->name; ?>"/>
+				<div>
+				<?php if(get_option('dbem_categories_enabled')) :?>
+					<?php $categories = EM_Categories::get(array('orderby'=>'category_name')); ?>
+					<?php if( count($categories) > 0 ): ?>
+						<!-- START Categories -->
+						<label for="event_categories"><?php _e ( 'Category', 'dbem' ); ?></label>
+							<select name="event_categories[]">
+							<option value="">Select a category</option>
+							<?php
+							foreach ( $categories as $EM_Category ){
+								if ($EM_Category->id != '2')
+								{
+									$selected = (current($_POST['event_categories']) == $EM_Category->id || $EM_Event->get_categories()->has($EM_Category->id)) ? "selected='selected'": ''; 
+									?>
+									<option value="<?php echo $EM_Category->id ?>" <?php echo $selected ?>>
+									<?php echo $EM_Category->name ?></span>
+									<?php 
+								}
+							}
+							?>
+							</select>
+						<!-- END Categories -->
+					<?php endif; ?>
+				<?php endif; ?>	
 			</fieldset>
 				
 			<fieldset><legend class="event-form-when"><?php _e ( 'When', 'dbem' ); ?></legend>
@@ -274,35 +298,6 @@
 					<label></label><?php _e ( 'Details about the event.', 'dbem' )?> <?php _e ( 'HTML Allowed.', 'dbem' )?>
 				</div>
 				</fieldset>
-				<fieldset>
-				<div>
-				<?php if(get_option('dbem_categories_enabled')) :?>
-					<?php $categories = EM_Categories::get(array('orderby'=>'category_name')); ?>
-					<?php if( count($categories) > 0 ): ?>
-						<!-- START Categories -->
-						<label for="event_categories"><?php _e ( 'Category', 'dbem' ); ?></label>
-							<select name="event_categories[]">
-							<option value="">Select a category</option>
-							<?php
-							foreach ( $categories as $EM_Category ){
-								if ($EM_Category->id != '2')
-								{
-									$selected = (current($_POST['event_categories']) == $EM_Category->id || $EM_Event->get_categories()->has($EM_Category->id)) ? "selected='selected'": ''; 
-									?>
-									<option value="<?php echo $EM_Category->id ?>" <?php echo $selected ?>>
-									<?php echo $EM_Category->name ?></span>
-									<?php 
-								}
-							}
-							?>
-							</select>
-						<!-- END Categories -->
-					<?php endif; ?>
-				<?php endif; ?>	
-				</div>
-				</fieldset>
-				
-				
 				<?php if(get_option('dbem_attributes_enabled')) : ?>
 				<fieldset>
 <!-- 				<legend>Additional Details</legend> -->
