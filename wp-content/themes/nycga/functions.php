@@ -151,51 +151,10 @@ add_action('wp_head','change_activity_plus_root_folder');
 // 	}
 		
 // }
-// add filter to enable recurrence_id arg in count function
-add_filter('em_events_count', 'nycga_allow_recurrence', 2, 10);
-function nycga_allow_recurrence ($count, $args)
-{
-	if ( isset($args['recurrence_id']))
-	{
-		global $wpdb;	
-		$count = true; 
-		$events_table = EM_EVENTS_TABLE;
-		$locations_table = EM_LOCATIONS_TABLE;
 
-		$args = EM_Events::get_default_search($args);
 
-		$conditions = EM_Events::build_sql_conditions($args);
-		$conditions['recurrence'] = "`recurrence_id`='" . (int) $args['recurrence_id'] . "'";
-		unset($conditions['recurring']);
-		
-		$limit = ( $args['limit'] && is_numeric($args['limit'])) ? "LIMIT {$args['limit']}" : '';
-		$offset = ( $limit != "" && is_numeric($args['offset']) ) ? "OFFSET {$args['offset']}" : '';
-
-		//Put it all together
-		$where = ( count($conditions) > 0 ) ? " WHERE " . implode ( " AND ", $conditions ):'';
-		
-		//Get ordering instructions
-		$EM_Event = new EM_Event();
-		$accepted_fields = $EM_Event->get_fields(true);
-		$orderby = EM_Events::build_sql_orderby($args, $accepted_fields, get_option('dbem_events_default_order'));
-		//Now, build orderby sql
-		$orderby_sql = ( count($orderby) > 0 ) ? 'ORDER BY '. implode(', ', $orderby) : '';
-		
-		//Create the SQL statement and execute
-		$selectors = ( $count ) ?  'COUNT(*)':'*';
-		$sql = "
-			SELECT $selectors FROM $events_table
-			LEFT JOIN $locations_table ON {$locations_table}.location_id={$events_table}.location_id
-			$where
-			$orderby_sql
-			$limit $offset
-		";
-		return $wpdb->get_var($sql);
-	}
-	return $count;
-}
-
-/* add_action('wp_footer', 'nycga_check_php_mem_usage'); */
+// uncomment line below to add a memory usage statistic to the footer of the page 
+// add_action('wp_footer', 'nycga_check_php_mem_usage'); 
 function nycga_check_php_mem_usage()
 {
 	function convert($size)
@@ -207,133 +166,183 @@ function nycga_check_php_mem_usage()
 	echo convert(memory_get_peak_usage(true)); // 123 kb
 }
 
-function nycga_remove_offset_for_output($args)
-{
-	unset($args['offset']);
-	return $args;
-}
-
-add_action('init', 'nycga_remove_events_tabs', 10);
-function nycga_remove_events_tabs()
+// only add below filters if events plugin is enabled
+if (defined('EM_VERSION'))
 {
 
-	remove_action('wp', 'bp_em_setup_nav', 2);
-	
-	global $bp; //print_r($bp);
-	
-	if( empty($bp->events) ) bp_em_setup_globals();
-	
-	$em_link = $bp->loggedin_user->domain . $bp->events->slug . '/';
-
-	$count = EM_Events::count(array('owner' => $bp->displayed_user->id, 'recurrence_id' => '0'));
-	
-	/* Add 'Events' to the main user profile navigation */
-	bp_core_new_nav_item( array(
-		'name' => sprintf(__( 'Events <span>%s</span>', 'dbem' ), $count),
-		'slug' => $bp->events->slug,
-		'position' => 80,
-		'screen_function' => (bp_is_my_profile() && current_user_can('edit_events')) ? 'bp_em_my_events':'bp_em_events',
-		'default_subnav_slug' => bp_is_my_profile() ? 'my-events':''
-	) );
-	
-	if( current_user_can('edit_events') ){
-		bp_core_new_subnav_item( array(
-			'name' => __( 'My Events', 'dbem' ),
-			'slug' => 'my-events',
-			'parent_slug' => $bp->events->slug,
-			'parent_url' => $em_link,
-			'screen_function' => 'bp_em_my_events',
-			'position' => 30,
-			'user_has_access' => bp_is_my_profile() // Only the logged in user can access this on his/her profile
-		) );
-	}
-
-	
-	$count = 0;
-	
-	/* Create two sub nav items for this component */
-	$user_access = false;
-	$group_link = '';
-	if( !empty($bp->groups->current_group) ){
-		$group_link = $bp->root_domain . '/' . $bp->groups->slug . '/' . $bp->groups->current_group->slug . '/';
-		$user_access = $bp->groups->current_group->user_has_access;
-		if( !empty($bp->current_component) && $bp->current_component == 'groups' ){
-			$count = EM_Events::count(array('group'=>$bp->groups->current_group->id, 'recurrence_id' => '0'));
-			if( empty($count) ) $count = 0;
-		}
-		bp_core_new_subnav_item( array( 
-			'name' => sprintf(__( 'Events <span>%s</span>', 'dbem' ), $count),
-			'slug' => 'events', 
-			'parent_url' => $group_link, 
-			'parent_slug' => $bp->groups->current_group->slug, 
-			'screen_function' => 'bp_em_group_events', 
-			'position' => 50, 
-			'user_has_access' => $user_access, 
-			'item_css_id' => 'events' 
-		));
-	}
-
-/*
-	global $bp;
-	bp_core_remove_subnav_item( $bp->events->slug, 'my-locations' );
-	bp_core_remove_subnav_item( $bp->events->slug, 'my-bookings' );
-	bp_core_remove_subnav_item( $bp->events->slug, 'attending' );
-	bp_core_remove_subnav_item( $bp->events->slug, 'profile' );
-*/
-}
-
-// add events.js
-add_action('wp_head', 'nycga_events_js');
-function nycga_events_js()
-{
-	?><script type="text/javascript" src="<?php echo bloginfo('stylesheet_directory') ?>/events.js"></script><?php
-}
-
-// allow moderator events to be attached to a group
-add_action('em_event_save_pre','nycga_group_event_save',2,1);
-function nycga_group_event_save($EM_Event){
-	if( is_object($EM_Event) && empty($EM_Event->group_id) && !empty($_REQUEST['group_id']) && is_numeric($_REQUEST['group_id']) ){
-		//we have been requested an event creation tied to a group, so does this group exist, and does this person have admin rights to it?
-		if( groups_is_user_admin(get_current_user_id(), $_REQUEST['group_id']) || groups_is_user_mod(get_current_user_id(), $_REQUEST['group_id'])){
-			$EM_Event->group_id = $_REQUEST['group_id'];
-		}				
-	}	
-	return $EM_Event;
-}
-
-// allow mod to manage group events
-add_action('em_event_can_manage','nycga_em_group_event_can_manage',2,2);
-function nycga_em_group_event_can_manage( $result, $EM_Event){
-	if( !$result && !empty($EM_Event->group_id) ){ //only override if already false, incase it's true
-		if( (groups_is_user_admin(get_current_user_id(),$EM_Event->group_id) || groups_is_user_mod(get_current_user_id(), $EM_Event->group_id)) && current_user_can('edit_events') ){
-			//This user is an admin of the owner's group, so they can edit this event.
-			return true;
-		}
-	}
-	return $result;
-}
-
-// require categories
-add_action('em_event_validate', 'nycga_require_category', 2, 10);
-function nycga_require_category($valid, $event)
-{
-	if ( empty($_POST['event_categories']) || $_POST['event_categories'][0] == '')
+	// add filter to enable recurrence_id arg in count function
+	add_filter('em_events_count', 'nycga_allow_recurrence', 2, 10);
+	function nycga_allow_recurrence ($count, $args)
 	{
-		$event->add_error(__('Category is required'));
-		return false;
-	}
-	return $valid;
-}
+		if ( isset($args['recurrence_id']))
+		{
+			global $wpdb;	
+			$count = true; 
+			$events_table = EM_EVENTS_TABLE;
+			$locations_table = EM_LOCATIONS_TABLE;
 
-function nycga_my_events_include_general( $conditions, $args ){
-	if( !empty($args['group']) && $args['group'] == 'my' ){
-		$conditions['group'] = "(`group_id` = '0' OR `group_id` = NULL";
-		$groups = groups_get_user_groups(get_current_user_id());
-		if( count($groups) > 0 ){
-			$conditions['group'] .= " OR `group_id` IN (".implode(',',$groups['groups']).")";
+			$args = EM_Events::get_default_search($args);
+
+			$conditions = EM_Events::build_sql_conditions($args);
+			$conditions['recurrence'] = "`recurrence_id`='" . (int) $args['recurrence_id'] . "'";
+			unset($conditions['recurring']);
+
+			$limit = ( $args['limit'] && is_numeric($args['limit'])) ? "LIMIT {$args['limit']}" : '';
+			$offset = ( $limit != "" && is_numeric($args['offset']) ) ? "OFFSET {$args['offset']}" : '';
+
+			//Put it all together
+			$where = ( count($conditions) > 0 ) ? " WHERE " . implode ( " AND ", $conditions ):'';
+
+			//Get ordering instructions
+			$EM_Event = new EM_Event();
+			$accepted_fields = $EM_Event->get_fields(true);
+			$orderby = EM_Events::build_sql_orderby($args, $accepted_fields, get_option('dbem_events_default_order'));
+			//Now, build orderby sql
+			$orderby_sql = ( count($orderby) > 0 ) ? 'ORDER BY '. implode(', ', $orderby) : '';
+
+			//Create the SQL statement and execute
+			$selectors = ( $count ) ?  'COUNT(*)':'*';
+			$sql = "
+				SELECT $selectors FROM $events_table
+				LEFT JOIN $locations_table ON {$locations_table}.location_id={$events_table}.location_id
+				$where
+				$orderby_sql
+				$limit $offset
+			";
+			return $wpdb->get_var($sql);
 		}
-		$conditions['group'] .= " )";
+		return $count;
 	}
-	return $conditions;
+
+	// needed to fix memory issues -- by default the plugin pulls all events and then does limit/offset in the php.
+	function nycga_remove_offset_for_output($args)
+	{
+		unset($args['offset']);
+		return $args;
+	}
+
+	add_action('init', 'nycga_remove_events_tabs', 10);
+	function nycga_remove_events_tabs()
+	{
+
+		remove_action('wp', 'bp_em_setup_nav', 2);
+
+		global $bp; //print_r($bp);
+
+		if( empty($bp->events) ) bp_em_setup_globals();
+
+		$em_link = $bp->loggedin_user->domain . $bp->events->slug . '/';
+
+		$count = EM_Events::count(array('owner' => $bp->displayed_user->id, 'recurrence_id' => '0'));
+
+		/* Add 'Events' to the main user profile navigation */
+		bp_core_new_nav_item( array(
+			'name' => sprintf(__( 'Events <span>%s</span>', 'dbem' ), $count),
+			'slug' => $bp->events->slug,
+			'position' => 80,
+			'screen_function' => (bp_is_my_profile() && current_user_can('edit_events')) ? 'bp_em_my_events':'bp_em_events',
+			'default_subnav_slug' => bp_is_my_profile() ? 'my-events':''
+		) );
+
+		if( current_user_can('edit_events') ){
+			bp_core_new_subnav_item( array(
+				'name' => __( 'My Events', 'dbem' ),
+				'slug' => 'my-events',
+				'parent_slug' => $bp->events->slug,
+				'parent_url' => $em_link,
+				'screen_function' => 'bp_em_my_events',
+				'position' => 30,
+				'user_has_access' => bp_is_my_profile() // Only the logged in user can access this on his/her profile
+			) );
+		}
+
+
+		$count = 0;
+
+		/* Create two sub nav items for this component */
+		$user_access = false;
+		$group_link = '';
+		if( !empty($bp->groups->current_group) ){
+			$group_link = $bp->root_domain . '/' . $bp->groups->slug . '/' . $bp->groups->current_group->slug . '/';
+			$user_access = $bp->groups->current_group->user_has_access;
+			if( !empty($bp->current_component) && $bp->current_component == 'groups' ){
+				$count = EM_Events::count(array('group'=>$bp->groups->current_group->id, 'recurrence_id' => '0'));
+				if( empty($count) ) $count = 0;
+			}
+			bp_core_new_subnav_item( array( 
+				'name' => sprintf(__( 'Events <span>%s</span>', 'dbem' ), $count),
+				'slug' => 'events', 
+				'parent_url' => $group_link, 
+				'parent_slug' => $bp->groups->current_group->slug, 
+				'screen_function' => 'bp_em_group_events', 
+				'position' => 50, 
+				'user_has_access' => $user_access, 
+				'item_css_id' => 'events' 
+			));
+		}
+
+	/*
+		global $bp;
+		bp_core_remove_subnav_item( $bp->events->slug, 'my-locations' );
+		bp_core_remove_subnav_item( $bp->events->slug, 'my-bookings' );
+		bp_core_remove_subnav_item( $bp->events->slug, 'attending' );
+		bp_core_remove_subnav_item( $bp->events->slug, 'profile' );
+	*/
+	}
+
+	// add events.js
+	add_action('wp_head', 'nycga_events_js');
+	function nycga_events_js()
+	{
+		?><script type="text/javascript" src="<?php echo bloginfo('stylesheet_directory') ?>/events.js"></script><?php
+	}
+
+	// allow moderator events to be attached to a group
+	add_action('em_event_save_pre','nycga_group_event_save',2,1);
+	function nycga_group_event_save($EM_Event){
+		if( is_object($EM_Event) && empty($EM_Event->group_id) && !empty($_REQUEST['group_id']) && is_numeric($_REQUEST['group_id']) ){
+			//we have been requested an event creation tied to a group, so does this group exist, and does this person have admin rights to it?
+			if( groups_is_user_admin(get_current_user_id(), $_REQUEST['group_id']) || groups_is_user_mod(get_current_user_id(), $_REQUEST['group_id'])){
+				$EM_Event->group_id = $_REQUEST['group_id'];
+			}				
+		}	
+		return $EM_Event;
+	}
+
+	// allow mod to manage group events
+	add_action('em_event_can_manage','nycga_em_group_event_can_manage',2,2);
+	function nycga_em_group_event_can_manage( $result, $EM_Event){
+		if( !$result && !empty($EM_Event->group_id) ){ //only override if already false, incase it's true
+			if( (groups_is_user_admin(get_current_user_id(),$EM_Event->group_id) || groups_is_user_mod(get_current_user_id(), $EM_Event->group_id)) && current_user_can('edit_events') ){
+				//This user is an admin of the owner's group, so they can edit this event.
+				return true;
+			}
+		}
+		return $result;
+	}
+
+	// require categories
+	add_action('em_event_validate', 'nycga_require_category', 2, 10);
+	function nycga_require_category($valid, $event)
+	{
+		if ( empty($_POST['event_categories']) || $_POST['event_categories'][0] == '')
+		{
+			$event->add_error(__('Category is required'));
+			return false;
+		}
+		return $valid;
+	}
+
+	function nycga_my_events_include_general( $conditions, $args ){
+		if( !empty($args['group']) && $args['group'] == 'my' ){
+			$conditions['group'] = "(`group_id` = '0' OR `group_id` = NULL";
+			$groups = groups_get_user_groups(get_current_user_id());
+			if( count($groups) > 0 ){
+				$conditions['group'] .= " OR `group_id` IN (".implode(',',$groups['groups']).")";
+			}
+			$conditions['group'] .= " )";
+		}
+		return $conditions;
+	}
+	add_filter('em_events_build_sql_conditions','nycga_my_events_include_general',10,2);
 }
-add_filter('em_events_build_sql_conditions','nycga_my_events_include_general',10,2);
