@@ -41,7 +41,7 @@
 			<?php endforeach; ?>
 		</select>
 		<!-- END Category Search -->
-		<?php if ( ! bp_is_group() && bp_has_groups() ) : //Jessica ?> 
+		<?php if ( ! bp_is_group() && bp_has_groups('per_page=0&page=0') ) : //Jessica ?> 
 		<!-- START Group Search -->
 		<select name="group" class="em-events-search-category">
 			<option value=''><?php _e('All Groups','dbem'); ?></option>
